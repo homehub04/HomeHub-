@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nzvimbo — Sign in</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell dark-shell" style="max-width:480px;">
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 28px 30px;">
+
+    <div id="mark" style="width:44px;height:44px;border:1.4px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:28px;">
+      <svg class="ic" style="color:var(--gold)" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+    </div>
+
+    <!-- ===== STEP: choose login or signup ===== -->
+    <div id="step-choice">
+      <h2 style="font-size:26px; margin-bottom:10px;">Find a rental, <em style="color:var(--gold); font-style:italic;">verified.</em></h2>
+      <p style="color:#9B9788; font-size:13.5px; line-height:1.5; margin-bottom:26px;">Connecting landlords and tenants across Zimbabwe.</p>
+      <button class="btn-primary" onclick="showStep('signup')" style="margin-bottom:10px;">Create an account</button>
+      <button class="btn-ghost" style="width:100%; color:var(--paper); border-color:#3A3F47;" onclick="showStep('login')">I already have an account</button>
+    </div>
+
+    <!-- ===== STEP: signup ===== -->
+    <div id="step-signup" style="display:none;">
+      <h2 style="font-size:22px; margin-bottom:18px;">Create your account</h2>
+
+      <label class="field-label">Full name</label>
+      <input class="text-field" id="su-name" placeholder="Tendai Moyo">
+
+      <label class="field-label">Email</label>
+      <input class="text-field" id="su-email" type="email" placeholder="you@example.com">
+
+      <label class="field-label">Phone number</label>
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #3A3F47; border-radius:12px; padding:14px 16px; margin-bottom:18px;">
+        <span class="mono" style="font-size:14px; color:#C7C3B8; border-right:1px solid #3A3F47; padding-right:10px;">+263</span>
+        <input id="su-phone" placeholder="77 412 0568" style="background:none;border:none;outline:none;color:var(--paper);font-family:'Space Grotesk';font-size:15px;flex:1;">
+      </div>
+
+      <label class="field-label">Password</label>
+      <input class="text-field" id="su-password" type="password" placeholder="At least 8 characters">
+
+      <label class="field-label">I am signing up as</label>
+      <div style="display:flex; gap:10px; margin-bottom:22px;">
+        <button type="button" class="role-btn btn-ghost" data-role="tenant" style="flex:1; color:var(--paper); border-color:#3A3F47;" onclick="selectRole('tenant')">Tenant</button>
+        <button type="button" class="role-btn btn-ghost" data-role="landlord" style="flex:1; color:var(--paper); border-color:#3A3F47;" onclick="selectRole('landlord')">Landlord</button>
+      </div>
+
+      <div class="error-msg" id="su-error"></div>
+      <button class="btn-primary" id="su-submit" onclick="doSignup()">Create account</button>
+      <button class="btn-ghost" style="width:100%; margin-top:10px; color:#9B9788; border:none;" onclick="showStep('choice')">Back</button>
+    </div>
+
+    <!-- ===== STEP: verify email + phone ===== -->
+    <div id="step-verify" style="display:none;">
+      <h2 style="font-size:22px; margin-bottom:6px;">Verify your email</h2>
+      <p style="color:#9B9788; font-size:13px; margin-bottom:20px;">We sent a 6-digit code to <span id="verify-email-target" class="mono"></span></p>
+      <div class="otp-row" id="email-otp-row">
+        <input class="otp-box" maxlength="1"><input class="otp-box" maxlength="1"><input class="otp-box" maxlength="1">
+        <input class="otp-box" maxlength="1"><input class="otp-box" maxlength="1"><input class="otp-box" maxlength="1">
+      </div>
+      <div class="error-msg" id="verify-email-error"></div>
+      <button class="btn-primary" style="margin-bottom:10px;" onclick="verifyChannel('email')">Verify email</button>
+      <button class="btn-ghost" style="width:100%; color:#9B9788; border:none; margin-bottom:24px;" onclick="resend('email')">Resend code</button>
+
+      <h2 style="font-size:22px; margin-bottom:6px;">Verify your phone</h2>
+      <p style="color:#9B9788; font-size:13px; margin-bottom:20px;">
+        Code sent to <span id="verify-phone-target" class="mono"></span> —
+        in dev mode, check the <strong>server terminal</strong> for the code.
+      </p>
+      <div class="otp-row" id="phone-otp-row">
+        <input class="otp-box" maxlength="1"><input class="otp-box" maxlength="1"><input class="otp-box" maxlength="1">
+        <input class="otp-box" maxlength="1"><input class="otp-box" maxlength="1"><input class="otp-box" maxlength="1">
+      </div>
+      <div class="error-msg" id="verify-phone-error"></div>
+      <button class="btn-primary" style="margin-bottom:10px;" onclick="verifyChannel('phone')">Verify phone</button>
+      <button class="btn-ghost" style="width:100%; color:#9B9788; border:none; margin-bottom:14px;" onclick="resend('phone')">Resend code</button>
+
+      <button class="btn-dark" style="width:100%;" onclick="goToApp()">Continue to app</button>
+    </div>
+
+    <!-- ===== STEP: login ===== -->
+    <div id="step-login" style="display:none;">
+      <h2 style="font-size:22px; margin-bottom:18px;">Welcome back</h2>
+      <label class="field-label">Email or phone number</label>
+      <input class="text-field" id="li-identifier" placeholder="you@example.com or 0774120568">
+      <label class="field-label">Password</label>
+      <input class="text-field" id="li-password" type="password" placeholder="Your password">
+      <div class="error-msg" id="li-error"></div>
+      <button class="btn-primary" onclick="doLogin()">Sign in</button>
+      <button class="btn-ghost" style="width:100%; margin-top:10px; color:#9B9788; border:none;" onclick="showStep('choice')">Back</button>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+let selectedRole = null;
+let pendingUser = null;
+
+function showStep(name) {
+  ['choice','signup','verify','login'].forEach(s => {
+    document.getElementById('step-' + s).style.display = (s === name) ? 'block' : 'none';
+  });
+}
+
+function selectRole(role) {
+  selectedRole = role;
+  document.querySelectorAll('.role-btn').forEach(b => {
+    b.style.background = (b.dataset.role === role) ? 'var(--gold)' : 'none';
+    b.style.color = (b.dataset.role === role) ? 'var(--ink)' : 'var(--paper)';
+  });
+}
+
+// auto-advance OTP boxes
+document.querySelectorAll('.otp-box').forEach(box => {
+  box.addEventListener('input', () => {
+    if (box.value && box.nextElementSibling) box.nextElementSibling.focus();
+  });
+});
+
+function otpValue(rowId) {
+  return [...document.getElementById(rowId).querySelectorAll('.otp-box')].map(b => b.value).join('');
+}
+
+async function doSignup() {
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const phoneLocal = document.getElementById('su-phone').value.trim().replace(/\s+/g, '');
+  const phone = phoneLocal.startsWith('+') ? phoneLocal : `+263${phoneLocal.replace(/^0/, '')}`;
+  const password = document.getElementById('su-password').value;
+  const errEl = document.getElementById('su-error');
+  errEl.textContent = '';
+
+  if (!name || !email || !phoneLocal || !password || !selectedRole) {
+    errEl.textContent = 'Please fill in every field and choose an account type.';
+    return;
+  }
+
+  try {
+    const data = await api('/api/auth/signup', {
+      method: 'POST',
+      auth: false,
+      body: { name, email, phone, password, role: selectedRole }
+    });
+    setToken(data.token);
+    setUser(data.user);
+    pendingUser = data.user;
+    document.getElementById('verify-email-target').textContent = email;
+    document.getElementById('verify-phone-target').textContent = phone;
+    showStep('verify');
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+async function verifyChannel(channel) {
+  const target = channel === 'email' ? pendingUser.email : pendingUser.phone;
+  const code = otpValue(channel + '-otp-row');
+  const errEl = document.getElementById('verify-' + channel + '-error');
+  errEl.textContent = '';
+  try {
+    const data = await api('/api/auth/verify', { method: 'POST', body: { channel, target, code } });
+    pendingUser = data.user;
+    setUser(data.user);
+    toast(channel[0].toUpperCase() + channel.slice(1) + ' verified');
+  } catch (e) {
+    errEl.textContent = e.message === 'invalid_code' ? 'That code is incorrect.' : (e.message === 'expired' ? 'Code expired — resend and try again.' : e.message);
+  }
+}
+
+async function resend(channel) {
+  const target = channel === 'email' ? pendingUser.email : pendingUser.phone;
+  await api('/api/auth/resend', { method: 'POST', body: { channel, target } });
+  toast('New code sent');
+}
+
+function goToApp() { window.location.href = '/app.html'; }
+
+async function doLogin() {
+  const identifier = document.getElementById('li-identifier').value.trim();
+  const password = document.getElementById('li-password').value;
+  const errEl = document.getElementById('li-error');
+  errEl.textContent = '';
+  try {
+    const data = await api('/api/auth/login', { method: 'POST', auth: false, body: { identifier, password } });
+    setToken(data.token);
+    setUser(data.user);
+    window.location.href = '/app.html';
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+</script>
+</body>
+</html>
