@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nzvimbo — Listings</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+
+  <div class="topbar">
+    <div>
+      <h3 id="greeting" style="font-size:19px;">Find a rental</h3>
+      <div class="mono" style="font-size:11px; color:var(--ink-soft); margin-top:2px;" id="user-role-label"></div>
+    </div>
+    <button class="btn-ghost" onclick="logout()" style="padding:8px 14px;">Log out</button>
+  </div>
+
+  <!-- ===== TENANT: search ===== -->
+  <div id="view-search" style="padding:0 20px;">
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <input class="text-field" style="margin:0; flex:1;" id="search-q" placeholder="Search by title or address">
+      <button class="btn-dark" onclick="loadListings()">Go</button>
+    </div>
+    <div id="listing-results"></div>
+  </div>
+
+  <!-- ===== LANDLORD: dashboard ===== -->
+  <div id="view-landlord" style="display:none; padding:0 20px;">
+    <div style="display:flex; gap:10px; margin-bottom:18px;">
+      <div class="card" style="flex:1; padding:13px; margin:0;"><div class="mono" style="font-size:17px; font-weight:600;" id="stat-live">0</div><div style="font-size:10px; color:var(--ink-soft);">Live listings</div></div>
+      <div class="card" style="flex:1; padding:13px; margin:0;"><div class="mono" style="font-size:17px; font-weight:600;" id="stat-pending">0</div><div style="font-size:10px; color:var(--ink-soft);">Pending review</div></div>
+    </div>
+
+    <button class="btn-primary" style="margin-bottom:18px;" onclick="openNewListingForm()">+ Add a listing</button>
+
+    <!-- New listing form -->
+    <div id="new-listing-form" style="display:none; margin-bottom:24px;">
+      <label class="field-label">Title</label>
+      <input class="text-field" id="nl-title" placeholder="2-bed garden flat, Avondale">
+      <label class="field-label">Monthly rent (USD)</label>
+      <input class="text-field" id="nl-price" type="number" placeholder="800">
+      <label class="field-label">Bedrooms / Bathrooms</label>
+      <div style="display:flex; gap:10px;">
+        <input class="text-field" id="nl-beds" type="number" placeholder="2" style="flex:1;">
+        <input class="text-field" id="nl-baths" type="number" placeholder="1" style="flex:1;">
+      </div>
+      <label class="field-label">Address</label>
+      <input class="text-field" id="nl-address" placeholder="14 Enterprise Rd, Avondale">
+      <label class="field-label">City</label>
+      <input class="text-field" id="nl-city" placeholder="Harare">
+      <label class="field-label">Features (for the AI description)</label>
+      <input class="text-field" id="nl-features" placeholder="garden, secure parking, recently painted">
+
+      <button class="btn-ghost" style="width:100%; margin-bottom:10px;" onclick="generateDescription()">✦ Generate description with AI</button>
+      <label class="field-label">Description</label>
+      <textarea class="text-field" id="nl-description" rows="4" style="resize:vertical;"></textarea>
+
+      <label class="field-label">Photos</label>
+      <input type="file" id="nl-photos" accept="image/*" multiple style="margin-bottom:18px;">
+
+      <div class="error-msg" id="nl-error"></div>
+      <button class="btn-primary" onclick="submitListing()">Submit for verification</button>
+    </div>
+
+    <div class="mono" style="font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:10px;">Your listings</div>
+    <div id="my-listings"></div>
+  </div>
+
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+requireLogin();
+const user = getUser();
+let uploadedImageUrls = [];
+
+document.getElementById('user-role-label').textContent = user.role === 'landlord' ? 'Landlord account' : 'Tenant account';
+document.getElementById('greeting').textContent = user.role === 'landlord' ? `${user.name.split(' ')[0]}'s properties` : 'Find a rental';
+
+if (user.role === 'landlord') {
+  document.getElementById('view-search').style.display = 'none';
+  document.getElementById('view-landlord').style.display = 'block';
+  loadMyListings();
+} else {
+  loadListings();
+}
+
+function logout() { clearSession(); window.location.href = '/index.html'; }
+
+// ---- Tenant: search ----
+async function loadListings() {
+  const q = document.getElementById('search-q').value.trim();
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  const data = await api('/api/listings?' + params.toString(), { auth: false });
+  const el = document.getElementById('listing-results');
+  el.innerHTML = data.listings.length ? '' : `<p style="color:var(--ink-soft); font-size:13px; padding:20px 0;">No listings match yet.</p>`;
+  data.listings.forEach(l => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <div class="card-img">
+        ${l.verified ? '<div class="verified-tag">Verified</div>' : ''}
+      </div>
+      <div class="card-body">
+        <div class="title">${l.title}</div>
+        <div class="meta">${l.address}${l.city ? ', ' + l.city : ''}</div>
+        <div class="price">$${l.price}<span> / month · ${l.currency}</span></div>
+      </div>`;
+    div.onclick = () => window.location.href = `/chat.html?listingId=${l.id}&otherUserId=${l.landlord_id}`;
+    el.appendChild(div);
+  });
+}
+
+// ---- Landlord: dashboard ----
+async function loadMyListings() {
+  const data = await api('/api/listings/mine/all');
+  document.getElementById('stat-live').textContent = data.listings.filter(l => l.status === 'live').length;
+  document.getElementById('stat-pending').textContent = data.listings.filter(l => l.status === 'pending').length;
+
+  const el = document.getElementById('my-listings');
+  el.innerHTML = '';
+  data.listings.forEach(l => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.style.margin = '0 0 10px';
+    div.innerHTML = `
+      <div class="card-body" style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px;">
+        <div>
+          <div class="title">${l.title}</div>
+          <div class="meta">$${l.price}/mo · ${l.address}</div>
+        </div>
+        <span class="badge ${l.status === 'live' ? 'msasa' : ''}">${l.status}</span>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function openNewListingForm() {
+  document.getElementById('new-listing-form').style.display = 'block';
+}
+
+async function generateDescription() {
+  const bedrooms = document.getElementById('nl-beds').value || 0;
+  const bathrooms = document.getElementById('nl-baths').value || 0;
+  const address = document.getElementById('nl-address').value;
+  const city = document.getElementById('nl-city').value;
+  const features = document.getElementById('nl-features').value;
+
+  if (!address) { toast('Add an address first'); return; }
+
+  try {
+    const data = await api('/api/ai/describe-listing', {
+      method: 'POST',
+      body: { bedrooms, bathrooms, address, city, features }
+    });
+    document.getElementById('nl-description').value = data.result;
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+async function submitListing() {
+  const errEl = document.getElementById('nl-error');
+  errEl.textContent = '';
+
+  const photos = document.getElementById('nl-photos').files;
+  if (photos.length) {
+    const form = new FormData();
+    [...photos].forEach(f => form.append('photos', f));
+    try {
+      const upload = await api('/api/upload', { method: 'POST', isForm: true, body: form });
+      uploadedImageUrls = upload.urls;
+    } catch (e) {
+      errEl.textContent = 'Photo upload failed: ' + e.message;
+      return;
+    }
+  }
+
+  try {
+    await api('/api/listings', {
+      method: 'POST',
+      body: {
+        title: document.getElementById('nl-title').value,
+        price: Number(document.getElementById('nl-price').value),
+        bedrooms: Number(document.getElementById('nl-beds').value || 0),
+        bathrooms: Number(document.getElementById('nl-baths').value || 0),
+        address: document.getElementById('nl-address').value,
+        city: document.getElementById('nl-city').value,
+        description: document.getElementById('nl-description').value,
+        images: uploadedImageUrls
+      }
+    });
+    toast('Listing submitted for verification');
+    document.getElementById('new-listing-form').style.display = 'none';
+    loadMyListings();
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+</script>
+</body>
+</html>

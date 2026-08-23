@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nzvimbo — Chat</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .chat-body{ flex:1; padding:18px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+  .bubble{ max-width:76%; padding:10px 14px; border-radius:16px; font-size:12.5px; line-height:1.5; }
+  .bubble.them{ background:var(--paper-dim); border-bottom-left-radius:4px; align-self:flex-start; }
+  .bubble.me{ background:var(--ink); color:var(--paper); border-bottom-right-radius:4px; align-self:flex-end; }
+  .chat-input{ display:flex; align-items:center; gap:10px; padding:14px 16px; border-top:1px solid var(--line); }
+  .chat-input input{ flex:1; background:var(--paper-dim); border:none; border-radius:20px; padding:11px 16px; font-size:12.5px; outline:none; }
+  .send-btn{ width:38px;height:38px;border-radius:50%;background:var(--ink); color:var(--paper); display:flex;align-items:center;justify-content:center; border:none; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="app-shell" style="height:100vh;">
+  <div class="topbar" style="border-bottom:1px solid var(--line);">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <a href="/app.html"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></a>
+      <div>
+        <div style="font-size:13.5px; font-weight:600;" id="chat-title">Chat</div>
+        <div class="mono" style="font-size:10px; color:var(--msasa);">Connected</div>
+      </div>
+    </div>
+  </div>
+  <div class="chat-body" id="chat-body"></div>
+  <div class="chat-input">
+    <input id="chat-text" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendMessage()">
+    <button class="send-btn" onclick="sendMessage()">
+      <svg class="ic" style="width:15px;height:15px;color:var(--paper)" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="/js/api.js"></script>
+<script>
+requireLogin();
+const user = getUser();
+const params = new URLSearchParams(window.location.search);
+const listingId = params.get('listingId');
+const otherUserId = Number(params.get('otherUserId'));
+
+const socket = io({ auth: { token: getToken() } });
+const body = document.getElementById('chat-body');
+
+function renderMessage(m) {
+  const div = document.createElement('div');
+  div.className = 'bubble ' + (m.sender_id === user.id ? 'me' : 'them');
+  div.textContent = m.content;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+
+async function loadHistory() {
+  const data = await api(`/api/messages/${listingId}/${otherUserId}`);
+  data.messages.forEach(renderMessage);
+}
+
+function sendMessage() {
+  const input = document.getElementById('chat-text');
+  const content = input.value.trim();
+  if (!content) return;
+  socket.emit('chat:send', { listingId, receiverId: otherUserId, content });
+  input.value = '';
+}
+
+socket.on('chat:receive', (m) => {
+  if (m.listing_id == listingId && (m.sender_id === otherUserId || m.receiver_id === otherUserId)) {
+    renderMessage(m);
+  }
+});
+
+loadHistory();
+</script>
+</body>
+</html>
